@@ -12,6 +12,13 @@ def check_phone(phone):
     return phone.isdigit() and (7 <= len(phone) <= 11)
 
 
+def get_not_none_keys(kwargs):
+    return {
+        key: val for key, val in kwargs.items()
+        if val is not None
+    }
+
+
 def create_clients(conn):
     with conn.cursor() as cur:
         sql = '''
@@ -45,13 +52,11 @@ def drop_tables(conn):
         DROP TABLE IF EXISTS phones;
         DROP TABLE IF EXISTS clients;
         ''')
-        conn.commit()
 
 
 def create_db(conn):
     create_clients(conn)
     create_phones(conn)
-    conn.commit()
 
 
 def insert_into_table(conn, table_name, **kwargs):
@@ -80,7 +85,6 @@ def add_client(conn, first_name, last_name, email, phones=None):
     if phones:
         for phone in phones:
             add_phone(conn, client[0], phone)
-    conn.commit()
 
 
 def add_phone(conn, client_id, phone):
@@ -96,10 +100,7 @@ def add_phone(conn, client_id, phone):
 
 
 def update_table(conn, table_name, id, **kwargs):
-    args = {
-        key: val for key, val in kwargs.items()
-        if val is not None
-    }
+    args = get_not_none_keys(kwargs)
     with conn.cursor() as cur:
         sql = 'UPDATE %s' % table_name
         sql += ' SET ' + ', '.join(key + '=%s' for key in args)
@@ -123,15 +124,10 @@ def change_client(
     if phones is not None:
         change_client_phones(conn, client_id, phones)
 
-    conn.commit()
-
 
 def delete_from_table(conn, table_name, **kwargs):
     with conn.cursor() as cur:
-        args = {
-            key: val for key, val in kwargs.items()
-            if val is not None
-        }
+        args = get_not_none_keys(kwargs)
         sql = 'DELETE FROM %s' % table_name
         sql += ' WHERE ' + 'AND '.join(key + '=%s' for key in args)
         cur.execute(sql, (*args.values(), ))
@@ -141,26 +137,20 @@ def change_client_phones(conn, client_id, phones):
     delete_from_table(conn, table_name='phones', client_id=client_id)
     for phone in phones:
         add_phone(conn, client_id, phone)
-    conn.commit()
 
 
 def delete_phone(conn, client_id, phone):
     delete_from_table(conn, table_name='phones',
                       client_id=client_id, phone=phone)
-    conn.commit()
 
 
 def delete_client(conn, client_id):
     delete_from_table(conn, table_name='clients', id=client_id)
-    conn.commit()
 
 
 def select_from_table(conn, fields='*', **kwargs):
     with conn.cursor() as cur:
-        args = {
-            key: val for key, val in kwargs.items()
-            if val is not None and key not in ('conn', )
-        }
+        args = get_not_none_keys(kwargs)
         sql = 'SELECT %s FROM clients c' % fields
         sql += ' LEFT JOIN phones p ON p.client_id = c.id '
         if args:
@@ -181,7 +171,6 @@ def find_client(conn, first_name=None, last_name=None, email=None, phone=None):
         email=email,
         phone=phone
     )
-    conn.commit()
     return lines
 
 
